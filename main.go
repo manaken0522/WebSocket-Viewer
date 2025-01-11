@@ -34,7 +34,7 @@ func main() {
 		for {
 			if sequence != 0 && heartbeat_interval != 0 {
 				time.Sleep(time.Duration(heartbeat_interval) * time.Millisecond)
-				ws.WriteMessage(websocket.PongMessage, []byte("{\"op\":1,\"d\":"+string(rune(sequence))+"}"))
+				ws.WriteMessage(websocket.PongMessage, []byte("{\"op\":1,\"d\":"+fmt.Sprint(sequence)+"}"))
 			}
 		}
 	}()
