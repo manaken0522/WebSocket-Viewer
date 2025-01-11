@@ -19,17 +19,23 @@ func main() {
 
 	ws, _, _ := websocket.DefaultDialer.Dial("wss://gateway.discord.gg/?encoding=json&v=9", nil)
 	defer ws.Close()
+
 	ws.WriteMessage(websocket.TextMessage, []byte(identify))
 	ws.WriteMessage(websocket.TextMessage, []byte("{\"op\":4,\"d\":{\"guild_id\":null,\"channel_id\":null,\"self_mute\":true,\"self_deaf\":false,\"self_video\":false,\"flags\":2}}"))
 	ws.WriteMessage(websocket.TextMessage, []byte("{\"op\":3,\"d\":{\"status\":\"online\",\"since\":0,\"activities\":[],\"afk\":false}}"))
 
-	sequence := 1
+	var (
+		sequence           int
+		heartbeat_interval int
+	)
 
 	// heartbeat
 	go func() {
 		for {
-			time.Sleep(30 * time.Second)
-			ws.WriteMessage(websocket.PongMessage, []byte("{\"op\":1,\"d\":"+string(sequence)+"}"))
+			if sequence != 0 && heartbeat_interval != 0 {
+				time.Sleep(time.Duration(heartbeat_interval) * time.Millisecond)
+				ws.WriteMessage(websocket.PongMessage, []byte("{\"op\":1,\"d\":"+string(rune(sequence))+"}"))
+			}
 		}
 	}()
 
@@ -42,7 +48,6 @@ func main() {
 			f, _ = os.Open("websocket.log")
 			pastlog := make([]byte, 1024*1024)
 			n, _ := f.Read(pastlog)
-			fmt.Println(n)
 			f.Close()
 
 			log := string(pastlog[:n]) + string(message) + "\n\n"
@@ -55,9 +60,17 @@ func main() {
 
 			var messageInterface interface{}
 			json.Unmarshal(message, &messageInterface)
+
 			s := messageInterface.(map[string]interface{})["s"]
 			if s != nil {
 				sequence = int(s.(float64))
+			}
+
+			opcode := int(messageInterface.(map[string]interface{})["op"].(float64))
+			switch opcode {
+			case 10:
+				heartbeat_interval = int(messageInterface.(map[string]interface{})["d"].(map[string]interface{})["heartbeat_interval"].(float64))
+				fmt.Println(heartbeat_interval)
 			}
 		}
 	}
